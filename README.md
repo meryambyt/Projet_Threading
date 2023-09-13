@@ -70,7 +70,7 @@ python main.py filename.pdb filename.fasta
 
 This will print the alignment results on the terminal and create an output file **output.log**. Don't forget to specify the path in which you want the file to be located.
 
-Test files are provided in the **/data/** folder for data reproducibility. The results of those data are discussed in the paper called **BOULAYAT_MERYAM_threading.pdf**.
+Test files are provided in the **/data/** folder for data reproducibility. The results using those data are discussed in the paper called **BOULAYAT_MERYAM_threading.pdf**.
 
 
 
