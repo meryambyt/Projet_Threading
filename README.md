@@ -36,7 +36,7 @@ conda deactivate
 
 ## Run the program
 
-To learn how to use the program, use the command:
+To learn how to use the program, go to **/src/** folder and use the command:
 ```bash
 python main.py -h
 ```
@@ -68,12 +68,11 @@ If you want to keep the default parameters, here is the command you have to run 
 python main.py filename.pdb filename.fasta
 ```
 
-This will print the results of the alignment on the terminal and create an output file **output.log**.
-Here is what the terminal will show : 
-# NE PAS OUBLIER DE METTRE SCREEN
+This will print the alignment results on the terminal and create an output file **output.log**. Don't forget to specify the path in which you want the file to be located.
 
-And here is the content of the output.log file generated :
-# METTRE UN SCREEN ICI AUSSI
+Test files are provided in the **/data/** folder for data reproducibility. The results of those data are discussed in the paper called **BOULAYAT_MERYAM_threading.pdf**.
+
+
 
 
 
