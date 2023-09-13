@@ -1,0 +1,9 @@
+name: threading_boulayat
+channels:
+  - default
+  - conda-forge
+  - bioconda
+dependencies:
+  - python=3.10
+  - NumPy
+  - Biopython
