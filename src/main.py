@@ -123,7 +123,8 @@ def extract_seq_from_pdb(pdb_file):
     # Select chain "A"
     chain = structure[0]["A"]
 
-    # Extract the sequence by converting three-letter residue codes to one-letter codes
+    # Extract the sequence by converting three-letter residue
+    # codes to one-letter codes
     sequence = "".join(
         [three_to_one(res.get_resname()) for res in chain.get_residues()]
     )
@@ -188,7 +189,8 @@ def extract_dope_score(dope_file):
         for line in f:
             # Split the line into words
             words = line.split()
-            # Check if the line contains information about two CA (carbon alpha) atoms
+            # Check if the line contains information about two CA
+            # (carbon alpha) atoms
             if words[1] == "CA" and words[3] == "CA":
                 # Convert three-letter residue codes to one-letter codes
                 residue1 = three_to_one(words[0])
@@ -199,7 +201,8 @@ def extract_dope_score(dope_file):
                 # Create a key to identify the pair of residues
                 key = f"{residue1} {residue2}"
 
-                # Initialize a dictionary to store scores at different distances
+                # Initialize a dictionary to store scores at
+                # different distances
                 score_each_distance = {}
                 # Initial distance
                 distance = 0.75
@@ -281,7 +284,7 @@ def dist_matrix_ca(ca_coords):
 
 def find_nearest_key(dope_score_aa, target_value):
     """
-    Find the key in the DOPE score dictionary that corresponds to the nearest value to the target value.
+    Key in DOPE score dictionary that corresponds to nearest value to target value.
 
     Args:
         dope_score_aa (dict): DOPE score dictionary for a specific amino acid pair.
@@ -290,14 +293,16 @@ def find_nearest_key(dope_score_aa, target_value):
     Returns:
         float: Nearest key in the DOPE score dictionary.
     """
-    # Find the key in the dictionary that minimizes the absolute difference with the target value
+    # Find the key in the dictionary that minimizes the absolute
+    # difference with the target value
     nearest_key = min(dope_score_aa, key=lambda key: abs(key - target_value))
     return nearest_key
 
 
-def init_low_level_matrix(position_sequence, position_template, sequence, template):
+def init_low_level_matrix(position_sequence, position_template, 
+                          sequence, template):
     """
-    Initialize the low-level dynamic programming matrix for sequence alignment.
+    Initialize low-level matrix.
 
     Args:
         position_sequence (int): Position in the sequence.
@@ -336,7 +341,8 @@ def init_low_level_matrix(position_sequence, position_template, sequence, templa
 
 
 def score_low_matrix(
-    position_sequence, position_template, sequence, dope_score, dist_ca, gap_penalty
+    position_sequence, position_template, sequence, dope_score,
+    dist_ca, gap_penalty
 ):
     """
     Calculate the score of the low-level dynamic programming matrix.
@@ -352,8 +358,9 @@ def score_low_matrix(
         float: Score of the specified cell in the matrix.
     """
 
-    # Initialize the matrix with 0 in position for which the score will 
-    # be calculated and inf in positions for which the score will not be calculated
+    # Initialize the matrix with 0 in position for which the score will
+    # be calculated and inf in positions for which the score will not
+    #  be calculated
     low_matrix = init_low_level_matrix(
         position_sequence, position_template, sequence, dist_ca
     )
@@ -398,7 +405,8 @@ def score_low_matrix(
     if ((position_sequence + 1) < low_matrix.shape[0]) and (
         (position_template + 1) < low_matrix.shape[1]
     ):
-        # Extract the amino acid pair positioned diagonally from the specified position.
+        # Extract the amino acid pair positioned diagonally from
+        # the specified position.
         aa = f"{sequence[position_sequence]} {sequence[position_sequence]}"
         # Calculate distance between positons
         val_dist = find_nearest_key(
@@ -432,13 +440,13 @@ def score_low_matrix(
 
     # If position_sequence = 0 and position_template = low_matrix.shape[1]
     # or position_sequence = low_matrix.shape[0] and position_template = 0
-    # last_score will be equal to none since all values of the matrix equal 
+    # last_score will be equal to none since all values of the matrix equal
     # +inf
     if last_score is None:
         last_score = low_matrix[position_sequence - 1][position_template - 1] + 1
 
-    # If the final score does not correspond to the bottom-right 
-    # corner of the matrix, it means that we have reached the edge 
+    # If the final score does not correspond to the bottom-right
+    # corner of the matrix, it means that we have reached the edge
     # of the matrix in either the sequence or template direction.
     # In this case, we need to add gap penalties to the final score.
     if position_sequence == (low_matrix.shape[0] - 1):
@@ -456,7 +464,7 @@ def calculate_matrix_element(args):
     Calculate the matrix element in parallel.
 
     Args:
-        args (tuple): Tuple of arguments (i, j, sequence, dope_score, dist_ca, gap_penalty).
+        args (tuple): Tuple of arguments for high matrix.
 
     Returns:
         float: Score of the specified cell in the matrix.
@@ -467,7 +475,7 @@ def calculate_matrix_element(args):
 
 def high_matrix(sequence, dist_ca, dope_score, gap_penalty):
     """
-    Calculate the high-level dynamic programming matrix for sequence alignment.
+    Calculate high-level matrix containing scores.
 
     Args:
         sequence (str): The input sequence from fasta file.
@@ -480,7 +488,7 @@ def high_matrix(sequence, dist_ca, dope_score, gap_penalty):
     # Calculate length of the input sequence and the template
     taille_seq = len(sequence)
     taille_template = len(dist_ca)
-    
+
     # Initialize empty matrix to store scores
     matrix = np.zeros((taille_seq, taille_template))
 
@@ -510,7 +518,6 @@ def high_matrix(sequence, dist_ca, dope_score, gap_penalty):
             matrix[i][j] = results[i * taille_template + j]
 
     return matrix
-
 
 
 def f_matrix(high_matrix, sequence, template_seq, gap_penalty):
@@ -617,16 +624,16 @@ def banner():
 
 def format_print_sequence(sequence, start):
     """
-    Format a sequence for printing with line numbers and a fixed width of 20 characters per line.
+    Format sequence with a fixed width of 20 characters per line.
 
     Args:
         sequence (str): The input sequence to be formatted.
         start (int): The starting line number for formatting.
 
     Returns:
-        str: The formatted sequence as a single string with newline characters separating each line.
+        str: The formatted sequence.
     """
-    lines = [sequence[i:i+20] for i in range(0, len(sequence), 20)]
+    lines = [sequence[i : i + 20] for i in range(0, len(sequence), 20)]
     formatted_lines = []
     for i, line in enumerate(lines):
         line_number = start + i * 20
@@ -638,7 +645,8 @@ def format_print_sequence(sequence, start):
 if __name__ == "__main__":
     # Create an argument parser
     parser = argparse.ArgumentParser(
-        description="Align a FASTA sequence with a PDB structure using DOPE scores."
+        description=
+        "Align a FASTA sequence with a PDB structure using DOPE scores."
     )
 
     # Add arguments for FASTA and PDB files
@@ -682,7 +690,6 @@ if __name__ == "__main__":
     align_matrix, seq, template = f_matrix(
         matrix, seq_list, template_seq, args.gap_penalty
     )
-   
 
     # Show only 20 amino acids per line
     total_lines = max(len(seq), len(template), len(ss)) // 20 + 1
@@ -694,7 +701,7 @@ if __name__ == "__main__":
     with open(args.output_file, "w") as output_file:
         # Print sequences and write them in a file
         for i in range(total_lines):
-            start = i * 20 
+            start = i * 20
             end = (i + 1) * 20
             formatted_seq = format_print_sequence(seq[start:end], start)
             formatted_template = format_print_sequence(template[start:end], start)
@@ -703,7 +710,6 @@ if __name__ == "__main__":
             print(f"Structure           : {formatted_template}")
             print(f"Secondary structure : {formatted_ss}")
             print("\n")
-
 
             output_file.write(f"Sequence            : {formatted_seq}\n")
             output_file.write(f"Structure           : {formatted_template}\n")
