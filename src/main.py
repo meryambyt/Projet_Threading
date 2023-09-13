@@ -1,3 +1,17 @@
+"""Alignment between sequence and structure.
+
+This script generates an optimal alignment between a structure and 
+a sequence using dual dynamic programming.
+
+Usage:
+======
+    python main.py filename.pdb filename.fasta
+"""
+
+__authors__ = "Boulayat Meryam"
+__date__ = "2023-09-13"
+
+# Import librairies
 from Bio import PDB
 from Bio import SeqIO
 import numpy as np
@@ -322,25 +336,32 @@ def init_low_level_matrix(position_sequence, position_template, sequence, templa
 
 
 def score_low_matrix(
-    position_sequence, position_template, seq_list, dope_score, dist_ca, gap_penalty
+    position_sequence, position_template, sequence, dope_score, dist_ca, gap_penalty
 ):
     """
-    Calculate the score of the low-level dynamic programming matrix cell for sequence alignment.
+    Calculate the score of the low-level dynamic programming matrix.
 
     Args:
         position_sequence (int): Position in the sequence.
         position_template (int): Position in the template.
-        seq_list (list): List of tuples containing position and amino acid character.
+        sequence (str): The input sequence from fasta file.
         dope_score (dict): Dictionary of DOPE scores.
         dist_ca (np.ndarray): Distance matrix of C-alpha atoms.
 
     Returns:
         float: Score of the specified cell in the matrix.
     """
+
+    # Initialize the matrix with 0 in position for which the score will 
+    # be calculated and inf in positions for which the score will not be calculated
     low_matrix = init_low_level_matrix(
-        position_sequence, position_template, seq_list, dist_ca
+        position_sequence, position_template, sequence, dist_ca
     )
+
+    # initialize the score
     last_score = None
+
+    # Add 1 due to the addition of an extra row and column
     position_sequence += 1
     position_template += 1
 
@@ -352,15 +373,21 @@ def score_low_matrix(
     for j in range(position_template):
         low_matrix[0][j] = gap_penalty * j
 
-    # Fill the first sub-matrix
+    # Fill the first sub-matrix until fixed position
     for i in range(1, position_sequence):
         for j in range(1, position_template):
+            # Fill only when value equals 0 (never calculates +inf cases)
             if low_matrix[i][j] == 0:
-                aa = f"{seq_list[i - 1]} {seq_list[position_sequence - 1]}"
+                # Extract pair of amino acid
+                aa = f"{sequence[i - 1]} {sequence[position_sequence - 1]}"
+                # Calculate distance between positons
                 val_dist = find_nearest_key(
                     dope_score[aa], dist_ca[j - 1][position_template - 1]
                 )
+                # Extract corresponding dope score
                 score = dope_score[aa][val_dist]
+
+                # Apply Needleman and Wunsch algorithm
                 match = low_matrix[i - 1][j - 1] + score
                 north = low_matrix[i - 1][j] + gap_penalty
                 west = low_matrix[i][j - 1] + gap_penalty
@@ -371,21 +398,28 @@ def score_low_matrix(
     if ((position_sequence + 1) < low_matrix.shape[0]) and (
         (position_template + 1) < low_matrix.shape[1]
     ):
-        aa = f"{seq_list[position_sequence]} {seq_list[position_sequence]}"
+        # Extract the amino acid pair positioned diagonally from the specified position.
+        aa = f"{sequence[position_sequence]} {sequence[position_sequence]}"
+        # Calculate distance between positons
         val_dist = find_nearest_key(
             dope_score[aa], dist_ca[position_template][position_template - 1]
         )
+        # Extract the corresponding dope score
         score = dope_score[aa][val_dist]
         low_matrix[position_sequence + 1][position_template + 1] = (
             low_matrix[position_sequence - 1][position_template - 1] + score
         )
 
+        # Calculate score for the rest of the matrix
         for i in range(position_sequence + 1, low_matrix.shape[0]):
             for j in range(position_template + 1, low_matrix.shape[1]):
+                # Score positioned diagonally from sepcified position
+                # was already calculated above, so continue
                 if (i == position_sequence + 1) and (j == position_template + 1):
                     continue
+                # Fill only when value equals 0 (never calculates +inf cases)
                 if low_matrix[i][j] == 0:
-                    aa = f"{seq_list[i - 1]} {seq_list[position_sequence - 1]}"
+                    aa = f"{sequence[i - 1]} {sequence[position_sequence - 1]}"
                     val_dist = find_nearest_key(
                         dope_score[aa], dist_ca[j - 1][position_template - 1]
                     )
@@ -396,9 +430,17 @@ def score_low_matrix(
                     low_matrix[i][j] = min(match, west, north)
                     last_score = low_matrix[i][j]
 
+    # If position_sequence = 0 and position_template = low_matrix.shape[1]
+    # or position_sequence = low_matrix.shape[0] and position_template = 0
+    # last_score will be equal to none since all values of the matrix equal 
+    # +inf
     if last_score is None:
         last_score = low_matrix[position_sequence - 1][position_template - 1] + 1
 
+    # If the final score does not correspond to the bottom-right 
+    # corner of the matrix, it means that we have reached the edge 
+    # of the matrix in either the sequence or template direction.
+    # In this case, we need to add gap penalties to the final score.
     if position_sequence == (low_matrix.shape[0] - 1):
         for j in range(position_template, low_matrix.shape[1]):
             last_score += gap_penalty
@@ -414,42 +456,55 @@ def calculate_matrix_element(args):
     Calculate the matrix element in parallel.
 
     Args:
-        args (tuple): Tuple of arguments (i, j, seq_list, dope_score, dist_ca, gap_penalty).
+        args (tuple): Tuple of arguments (i, j, sequence, dope_score, dist_ca, gap_penalty).
 
     Returns:
         float: Score of the specified cell in the matrix.
     """
-    i, j, seq_list, dope_score, dist_ca, gap_penalty = args
-    return score_low_matrix(i, j, seq_list, dope_score, dist_ca, gap_penalty)
+    i, j, sequence, dope_score, dist_ca, gap_penalty = args
+    return score_low_matrix(i, j, sequence, dope_score, dist_ca, gap_penalty)
 
 
-def high_matrix(seq_list, dist_ca, dope_score, gap_penalty):
+def high_matrix(sequence, dist_ca, dope_score, gap_penalty):
     """
     Calculate the high-level dynamic programming matrix for sequence alignment.
 
     Args:
-        seq_list (list): List of tuples containing position and amino acid character.
+        sequence (str): The input sequence from fasta file.
         dist_ca (np.ndarray): Distance matrix of C-alpha atoms.
         dope_score (dict): Dictionary of DOPE scores.
 
     Returns:
         np.ndarray: High-level dynamic programming matrix.
     """
-    taille_seq = len(seq_list)
+    # Calculate length of the input sequence and the template
+    taille_seq = len(sequence)
     taille_template = len(dist_ca)
+    
+    # Initialize empty matrix to store scores
     matrix = np.zeros((taille_seq, taille_template))
 
+    # Determine number of CPU cores for parallel processing
     num_cores = multiprocessing.cpu_count()
+
+    # Create a multiprocessing pool for parallel computation
     pool = multiprocessing.Pool(processes=num_cores)
+
+    # Generate a list of arguments for calculating matrix elements in parallel
     args_list = [
-        (i, j, seq_list, dope_score, dist_ca, gap_penalty)
+        (i, j, sequence, dope_score, dist_ca, gap_penalty)
         for i in range(taille_seq)
         for j in range(taille_template)
     ]
+
+    # Use parallel processing to calculate matrix elements
     results = pool.map(calculate_matrix_element, args_list)
+
+    # Close and join the multiprocessing pool
     pool.close()
     pool.join()
 
+    # Fill the matrix with the scores
     for i in range(taille_seq):
         for j in range(taille_template):
             matrix[i][j] = results[i * taille_template + j]
@@ -457,29 +512,32 @@ def high_matrix(seq_list, dist_ca, dope_score, gap_penalty):
     return matrix
 
 
-def f_matrix(high_matrix, seq_list, template_seq, gap_penalty):
+
+def f_matrix(high_matrix, sequence, template_seq, gap_penalty):
     """
     Calculate the final alignment matrix and aligned sequences.
 
     Args:
         high_matrix (np.ndarray): High-level dynamic programming matrix.
-        seq_list (list): List of tuples containing position and amino acid character for the sequence.
-        template_seq (list): List of tuples containing position and amino acid character for the template.
+        sequence (str): The input sequence from fasta file.
+        template_seq : The sequence of the template.
 
     Returns:
         np.ndarray: Final alignment matrix.
         str: Aligned sequence.
         str: Aligned template.
     """
+    # Initialize an empty matrix for the final alignment
     matrix = np.zeros((high_matrix.shape[0] + 1, high_matrix.shape[1] + 1))
-    gap_penalty = 2
 
+    # Initialize the first row and column of the matrix with gap penalties
     for i in range(matrix.shape[0]):
         matrix[i][0] = gap_penalty * i
 
     for j in range(matrix.shape[1]):
         matrix[0][j] = gap_penalty * j
 
+    # Calculate score with Needleman and Wunsch algorithm
     for i in range(1, matrix.shape[0]):
         for j in range(1, matrix.shape[1]):
             score = high_matrix[i - 1][j - 1]
@@ -490,19 +548,20 @@ def f_matrix(high_matrix, seq_list, template_seq, gap_penalty):
 
     seq = []
     template = []
-    i, j = len(seq_list), len(template_seq)
+    i, j = len(sequence), len(template_seq)
 
+    # Trace back to find the aligned sequences
     while i > 0 and j > 0:
         diag = matrix[i - 1, j - 1] + high_matrix[i - 1, j - 1]
         haut = matrix[i - 1, j] + gap_penalty
         gauche = matrix[i, j - 1] + gap_penalty
 
         if i > 0 and matrix[i, j] == haut:
-            seq.append(seq_list[i - 1])
+            seq.append(sequence[i - 1])
             template.append("-")
             i -= 1
         elif i > 0 and j > 0 and matrix[i, j] == diag:
-            seq.append(seq_list[i - 1])
+            seq.append(sequence[i - 1])
             template.append(template_seq[j - 1])
             i -= 1
             j -= 1
@@ -511,6 +570,7 @@ def f_matrix(high_matrix, seq_list, template_seq, gap_penalty):
             template.append(template_seq[j - 1])
             j -= 1
 
+    # Reverse and join the aligned sequences
     seq = "".join(seq[::-1])
     template = "".join(template[::-1])
 
@@ -555,6 +615,26 @@ def banner():
     print("\n" + "-" * 80 + "\n")
 
 
+def format_print_sequence(sequence, start):
+    """
+    Format a sequence for printing with line numbers and a fixed width of 20 characters per line.
+
+    Args:
+        sequence (str): The input sequence to be formatted.
+        start (int): The starting line number for formatting.
+
+    Returns:
+        str: The formatted sequence as a single string with newline characters separating each line.
+    """
+    lines = [sequence[i:i+20] for i in range(0, len(sequence), 20)]
+    formatted_lines = []
+    for i, line in enumerate(lines):
+        line_number = start + i * 20
+        formatted_line = f"{line_number:10d} {line}"
+        formatted_lines.append(formatted_line)
+    return "\n".join(formatted_lines)
+
+
 if __name__ == "__main__":
     # Create an argument parser
     parser = argparse.ArgumentParser(
@@ -594,22 +674,38 @@ if __name__ == "__main__":
     ca_coords = ca_coordinates(args.pdb_file)
     dist_ca = dist_matrix_ca(ca_coords)
     seq_list = extract_seq(args.fasta_file)
+    ss = extract_secondary_structure(args.pdb_file)
     dope_score = extract_dope_score(dope_filename)
-    print("Calcul de la matrice de score...\n")
+    print("Loading alignment matrix...\n")
     matrix = high_matrix(seq_list, dist_ca, dope_score, args.gap_penalty)
-    print("Calcul de l'alignement optimal...\n")
+    print("Loading optimal alignment...\n")
     align_matrix, seq, template = f_matrix(
         matrix, seq_list, template_seq, args.gap_penalty
     )
-    ss = extract_secondary_structure(args.pdb_file)
-    print("Alignment Results :")
-    print("\nSequence:\t", seq)
-    print("\nStructure:\t", template)
-    print("          \t", ss)
+   
 
+    # Show only 20 amino acids per line
+    total_lines = max(len(seq), len(template), len(ss)) // 20 + 1
+    seq = seq.ljust(total_lines * 20)
+    template = template.ljust(total_lines * 20)
+    ss = ss.ljust(total_lines * 20)
+    print("Optimal alignment result : \n")
     # Write results to the output.log file
     with open(args.output_file, "w") as output_file:
-        output_file.write("Sequence:\n")
-        output_file.write(seq)
-        output_file.write("\nStructure:\n")
-        output_file.write(template)
+        # Print sequences and write them in a file
+        for i in range(total_lines):
+            start = i * 20 
+            end = (i + 1) * 20
+            formatted_seq = format_print_sequence(seq[start:end], start)
+            formatted_template = format_print_sequence(template[start:end], start)
+            formatted_ss = format_print_sequence(ss[start:end], start)
+            print(f"Sequence            : {formatted_seq}")
+            print(f"Structure           : {formatted_template}")
+            print(f"Secondary structure : {formatted_ss}")
+            print("\n")
+
+
+            output_file.write(f"Sequence            : {formatted_seq}\n")
+            output_file.write(f"Structure           : {formatted_template}\n")
+            output_file.write(f"Secondary structure : {formatted_ss}\n")
+            output_file.write("\n")
