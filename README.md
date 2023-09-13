@@ -1,6 +1,6 @@
 # Threading: alignment between a sequence and a structure using dual dynamic programming
 
-This program is based on THREADER by David Jones.
+This program is based on [THREADER by David Jones](https://www.sciencedirect.com/science/article/abs/pii/S0167730608604706?via%3Dihub). This tools does an alignment between a sequence and a pdb stucture by using dual dynamic programming. The program may take some time to execute the task even with multiprocessing depending on the sequence and structure length.
 
 
 ## Setup your environment
